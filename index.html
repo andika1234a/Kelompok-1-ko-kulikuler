@@ -1,81 +1,117 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kelompok 1 Ko-Kurikuler</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>FotoTube Firebase 100 Foto</title>
+  <script type="module">
+    // --- Firebase Import ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCx2hqab1MAV_4NbnyEMKVRddry1_2ScNo",
+      authDomain: "project-2-e9457.firebaseapp.com",
+      projectId: "project-2-e9457",
+      storageBucket: "project-2-e9457.firebasestorage.app",
+      messagingSenderId: "244673617483",
+      appId: "1:244673617483:web:47e53c4ddf5d27d15277ce"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- 100 Foto Manual (isi link & judul sesuai kebutuhan) ---
+    const photos = [
+      { id: "foto1", url: "https://files.catbox.moe/0sn3nk.jpg", title: "Foto Pertama" },
+      { id: "foto2", url: "", title: "Foto Kedua" },
+      { id: "foto3", url: "", title: "Foto Ketiga" },
+      // ...
+      { id: "foto100", url: "", title: "Foto Ke-100" }
+    ];
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const gallery = document.getElementById("gallery");
+
+      photos.forEach((photo) => {
+        if (!photo.url) return; // hanya tampil kalau ada URL foto
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <img src="${photo.url}" alt="${photo.title}">
+          <h3>${photo.title}</h3>
+          <div class="actions">
+            <button onclick="likeFoto('${photo.id}')">👍 Like (<span id="like-${photo.id}">0</span>)</button>
+          </div>
+          <div class="comments">
+            <input type="text" id="input-${photo.id}" placeholder="Tulis komentar...">
+            <button onclick="addComment('${photo.id}')">Kirim</button>
+            <div id="list-${photo.id}"></div>
+          </div>
+        `;
+        gallery.appendChild(card);
+
+        // Realtime update Firestore
+        onSnapshot(doc(db, "photos", photo.id), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            document.getElementById(`like-${photo.id}`).innerText = data.likes || 0;
+
+            const list = document.getElementById(`list-${photo.id}`);
+            list.innerHTML = "";
+            (data.comments || []).forEach(c => {
+              const div = document.createElement("div");
+              div.className = "comment";
+              div.innerText = c;
+              list.appendChild(div);
+            });
+          } else {
+            // Buat data default kalau belum ada
+            setDoc(doc(db, "photos", photo.id), { likes: 0, comments: [] });
+          }
+        });
+      });
+    });
+
+    // Fungsi Like
+    window.likeFoto = async (id) => {
+      const ref = doc(db, "photos", id);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data();
+        await updateDoc(ref, { likes: (data.likes || 0) + 1 });
+      }
+    };
+
+    // Fungsi Komentar
+    window.addComment = async (id) => {
+      const input = document.getElementById(`input-${id}`);
+      const text = input.value.trim();
+      if (text !== "") {
+        const ref = doc(db, "photos", id);
+        await updateDoc(ref, { comments: arrayUnion(text) });
+        input.value = "";
+      }
+    };
+  </script>
   <style>
-    video.bg-video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: -1;
-    }
+    body { font-family: Arial, sans-serif; background:#f4f4f4; margin:0; padding:20px; }
+    h2 { text-align:center; }
+    .gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:15px; max-width:1200px; margin:auto; }
+    .card { background:#fff; padding:10px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
+    img { width:100%; border-radius:8px; }
+    h3 { font-size:16px; margin:8px 0; }
+    .comment { background:#eee; padding:5px; margin-top:5px; border-radius:4px; font-size:14px; }
+    input { width:70%; padding:5px; margin-top:5px; }
+    button { padding:5px 10px; margin-top:5px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#0056b3; }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center text-center text-white">
-
-  <!-- Video Background -->
-  <video class="bg-video" autoplay loop muted playsinline>
-    <source src="https://files.catbox.moe/o73zlw.mp4" type="video/mp4">
-    Browser kamu tidak mendukung video.
-  </video>
-
-  <!-- Konten -->
-  <div class="bg-black/50 p-8 rounded-2xl backdrop-blur-sm max-w-2xl w-full">
-    <h1 class="text-3xl font-bold mb-4">Welcome to Kelompok 1</h1>
-    <p class="mb-6">Ko-Kurikuler</p>
-    
-    <h2 class="text-xl font-semibold mb-3">Nama Anggota:</h2>
-    <ul class="space-y-2">
-      <li>1.Deswita</li>
-      <li>2.Laksmi</li>
-      <li>3.Dayu Asah</li>
-      <li>4.Dewi</li>
-      <li>5.Melly</li>
-      <li>6.Sandhy</li>
-      <li>7.Mahesa</li>
-      <li>8.Andika</li>
-      <li>9.Aldi</li>
-      <li>10.Setia</li>
-    </ul>
-
-    <!-- Tombol Play Music -->
-    <button id="playBtn" class="mt-6 px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold">
-      🎵 Play Music
-    </button>
-
-    <footer class="mt-8 text-xs">© 2025 Kelompok 1 Ko-Kurikuler/creator:kepo</footer>
-  </div>
-
-  <!-- Musik -->
-  <audio id="bgm" loop>
-    <source src="https://files.catbox.moe/pb7krq.m4a" type="audio/mp4">
-    Browser kamu tidak mendukung audio.
-  </audio>
-
-  <script>
-    const playBtn = document.getElementById("playBtn");
-    const bgm = document.getElementById("bgm");
-
-    playBtn.addEventListener("click", () => {
-      bgm.play();
-      playBtn.innerText = "⏸ Pause Music";
-      playBtn.onclick = () => {
-        if (bgm.paused) {
-          bgm.play();
-          playBtn.innerText = "⏸ Pause Music";
-        } else {
-          bgm.pause();
-          playBtn.innerText = "🎵 Play Music";
-        }
-      };
-    });
-  </script>
-
+<body>
+  <h2>📸 FotoTube dengan Firebase (100 Slot)</h2>
+  <div class="gallery" id="gallery"></div>
 </body>
 </html>
